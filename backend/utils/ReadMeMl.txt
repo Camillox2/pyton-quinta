@@ -1,6 +1,5 @@
 # Módulo de Machine Learning
-## Desenvolvido por: Erick Borger
-
+## Desenvolvido por: João Victor
 ## Visão Geral
 
 Este módulo implementa o núcleo de inteligência artificial do sistema, fornecendo algoritmos de 
