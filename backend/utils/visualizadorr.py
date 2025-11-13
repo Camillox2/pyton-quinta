@@ -7,7 +7,7 @@ import numpy as np
 from pandas.api.types import is_numeric_dtype
 
 class VisualizadorDados:
-    def _init_(self, data):
+    def __init__(self, data):
         self.data = data
         sns.set_style("whitegrid")
 
