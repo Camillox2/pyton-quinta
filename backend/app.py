@@ -5,16 +5,23 @@ from utils.carregador_dados import CarregadorDados
 from utils.visualizador_dados import VisualizadorDados
 from utils.modelos_ml import GerenciadorModelosML
 
+MODEL_MAP = {
+    'random_forest': 'Random Forest',
+    'decision_tree': 'Decision Tree',
+    'knn': 'K-Nearest Neighbors',
+    'logistic_regression': 'Logistic Regression'
+}
+
 app = Flask(__name__)
 CORS(app)
 
 carregador_dados = CarregadorDados()
-visualizador = VisualizadorDados()
 gerenciador_ml = GerenciadorModelosML()
 
 @app.route('/api/upload', methods=['POST'])
 def upload_file():
     try:
+        print('Recebendo upload...')
         if 'file' not in request.files:
             return jsonify({'error': 'Nenhum arquivo enviado'}), 400
         
@@ -22,7 +29,12 @@ def upload_file():
         if file.filename == '':
             return jsonify({'error': 'Arquivo vazio'}), 400
         
+        print(f'Lendo arquivo: {file.filename}')
         df = pd.read_csv(file)
+        print(f'Dados carregados: {df.shape[0]} linhas, {df.shape[1]} colunas')
+        
+        # Converter NaN para None para JSON válido
+        df = df.astype(object).where(pd.notna(df), None)
         
         return jsonify({
             'data': df.to_dict('records'),
@@ -30,6 +42,7 @@ def upload_file():
             'shape': df.shape
         })
     except Exception as e:
+        print(f'Erro no upload: {str(e)}')
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/analyze', methods=['POST'])
@@ -67,22 +80,23 @@ def visualize_data():
         if not data:
             return jsonify({'error': 'Dados não fornecidos'}), 400
         
-        df = pd.DataFrame(data)
+        df = pd.DataFrame(data).convert_dtypes()
+        visualizador = VisualizadorDados(df)
         
         numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
         
         charts = {}
         
         if len(numeric_cols) > 0:
-            dist_fig = visualizador.plot_distribution(df, numeric_cols[0])
+            dist_fig = visualizador.plot_distribution(numeric_cols[0])
             charts['distribution'] = dist_fig.to_html(full_html=False)
         
         if len(numeric_cols) > 1:
-            corr_fig = visualizador.plot_correlation_heatmap(df)
+            corr_fig = visualizador.plot_correlation_heatmap()
             charts['correlation'] = corr_fig.to_html(full_html=False)
         
         if 'latitude' in df.columns and 'longitude' in df.columns:
-            geo_fig = visualizador.plot_geographic_map(df, 'latitude', 'longitude')
+            geo_fig = visualizador.plot_geographic_map('latitude')
             charts['geographic'] = geo_fig.to_html(full_html=False)
         
         return jsonify(charts)
@@ -99,18 +113,61 @@ def train_model():
         if not data or not model_type or not target_column:
             return jsonify({'error': 'Dados incompletos'}), 400
         
-        df = pd.DataFrame(data)
+        df = pd.DataFrame(data).convert_dtypes()
+        model_key = MODEL_MAP.get(model_type)
+        if not model_key:
+            return jsonify({'error': 'Modelo não suportado'}), 400
         
         if target_column not in df.columns:
             return jsonify({'error': 'Coluna alvo não encontrada'}), 400
         
         X = df.drop(columns=[target_column])
-        y = df[target_column]
+        y = df[target_column].fillna('Missing')
+
+        gerenciador_ml.prepare_data(X, y)
+        gerenciador_ml.train_model(model_key)
+        metrics = gerenciador_ml.evaluate_model()
+
+        # Gerar gráficos
+        import plotly.graph_objects as go
+        import plotly.express as px
         
-        model = gerenciador_ml.train_model(X, y, model_type)
-        metrics = gerenciador_ml.evaluate_model(model, X, y)
+        # Matriz de confusão
+        cm = metrics['confusion_matrix']
+        fig_cm = px.imshow(cm, 
+                          text_auto=True,
+                          labels=dict(x="Predito", y="Real", color="Quantidade"),
+                          title="Matriz de Confusão",
+                          color_continuous_scale='Blues')
+        fig_cm.update_layout(template='plotly_white', height=500)
         
-        return jsonify(metrics)
+        # Importância de features (se disponível)
+        feature_importance_html = None
+        importance_df = gerenciador_ml.get_feature_importance()
+        if importance_df is not None:
+            top_features = importance_df.head(15)
+            fig_importance = px.bar(top_features, 
+                                   x='importance', 
+                                   y='feature',
+                                   orientation='h',
+                                   title='Top 15 - Importância das Features',
+                                   labels={'importance': 'Importância', 'feature': 'Feature'})
+            fig_importance.update_layout(template='plotly_white', height=500)
+            feature_importance_html = fig_importance.to_html(full_html=False)
+
+        response_payload = {
+            'accuracy': metrics['accuracy'],
+            'precision': metrics['precision'],
+            'recall': metrics['recall'],
+            'f1_score': metrics['f1_score'],
+            'train_accuracy': metrics['train_accuracy'],
+            'confusion_matrix': metrics['confusion_matrix'],
+            'classification_report': metrics['classification_report'],
+            'confusion_matrix_plot': fig_cm.to_html(full_html=False),
+            'feature_importance_plot': feature_importance_html
+        }
+
+        return jsonify(response_payload)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -123,13 +180,13 @@ def predict():
         if not data or not model_type:
             return jsonify({'error': 'Dados incompletos'}), 400
         
-        df = pd.DataFrame(data)
+        df = pd.DataFrame(data).convert_dtypes()
         
-        predictions = gerenciador_ml.predict(model_type, df)
+        predictions = gerenciador_ml.predict(df)
         
         return jsonify({'predictions': predictions.tolist()})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000)

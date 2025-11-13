@@ -20,6 +20,12 @@ wheels/
 .installed.cfg
 *.egg
 
+# Node modules
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+
 # Virtual Environment
 venv/
 ENV/
@@ -41,7 +47,14 @@ models/*.joblib
 
 # Data
 data/*.csv
+backend/data/*.csv
 !data/sample_data.csv
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # OS
 .DS_Store
