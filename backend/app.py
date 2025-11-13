@@ -118,6 +118,7 @@ def train_model():
         data = request.json.get('data')
         model_type = request.json.get('model_type')
         target_column = request.json.get('target_column')
+        test_size = request.json.get('test_size', 0.2)
         
         if not data or not model_type or not target_column:
             return jsonify({'error': 'Dados incompletos'}), 400
@@ -133,7 +134,7 @@ def train_model():
         X = df.drop(columns=[target_column])
         y = df[target_column].fillna('Missing')
 
-        gerenciador_ml.prepare_data(X, y)
+        gerenciador_ml.prepare_data(X, y, test_size=test_size)
         gerenciador_ml.train_model(model_key)
         metrics = gerenciador_ml.evaluate_model()
 

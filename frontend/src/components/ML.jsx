@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import StatBox from './StatBox';
 
 function ML({ data, showMessage, showError }) {
@@ -6,6 +6,7 @@ function ML({ data, showMessage, showError }) {
   const [targetCol, setTargetCol] = useState('');
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [testSize, setTestSize] = useState(0.2);
   const confusionRef = useRef(null);
   const importanceRef = useRef(null);
 
@@ -64,7 +65,8 @@ function ML({ data, showMessage, showError }) {
         body: JSON.stringify({
           data: data.data,
           model_type: model,
-          target_column: targetCol
+          target_column: targetCol,
+          test_size: testSize
         })
       });
 
@@ -113,6 +115,26 @@ function ML({ data, showMessage, showError }) {
         </select>
       </div>
 
+            <div className="form-group">
+        <label htmlFor="test-size">
+          Tamanho do Teste: {(testSize * 100).toFixed(0)}%
+        </label>
+        <input
+          id="test-size"
+          type="range"
+          min="0.1"
+          max="0.4"
+          step="0.05"
+          value={testSize}
+          onChange={(e) => setTestSize(parseFloat(e.target.value))}
+          style={{ width: "100%" }}
+        />
+        <small style={{ color: "#666" }}>
+          Treino: {((1 - testSize) * 100).toFixed(0)}% | Teste:{" "}
+          {(testSize * 100).toFixed(0)}%
+        </small>
+      </div>
+
       <button className="btn" onClick={handleTrain} disabled={loading}>
         {loading ? 'Treinando...' : 'Treinar Modelo'}
       </button>
@@ -121,7 +143,11 @@ function ML({ data, showMessage, showError }) {
         <div>
           <div className="stats">
             <StatBox
-              title="Acurácia"
+              title="Acurácia (Treino)"
+              value={`${(results.train_accuracy * 100).toFixed(2)}%`}
+            />
+            <StatBox
+              title="Acurácia (Teste)"
               value={`${(results.accuracy * 100).toFixed(2)}%`}
             />
             <StatBox
@@ -137,6 +163,25 @@ function ML({ data, showMessage, showError }) {
               value={`${(results.f1_score * 100).toFixed(2)}%`}
             />
           </div>
+
+          {results.train_accuracy && results.accuracy && (
+            <div style={{ 
+              marginTop: '1rem', 
+              padding: '1rem', 
+              background: Math.abs(results.train_accuracy - results.accuracy) > 0.1 ? '#fff3cd' : '#d4edda',
+              borderRadius: '8px',
+              border: `1px solid ${Math.abs(results.train_accuracy - results.accuracy) > 0.1 ? '#ffc107' : '#28a745'}`
+            }}>
+              <strong>
+                {Math.abs(results.train_accuracy - results.accuracy) > 0.1 
+                  ? ' Possível Overfitting' 
+                  : ' Modelo Balanceado'}
+              </strong>
+              <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.9rem' }}>
+                Diferença entre treino e teste: {(Math.abs(results.train_accuracy - results.accuracy) * 100).toFixed(2)}%
+              </p>
+            </div>
+          )}
 
           {results.confusion_matrix_plot && (
             <div style={{ marginTop: '2rem' }}>
