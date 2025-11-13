@@ -55,7 +55,7 @@ class VisualizadorDados:
 
     def plot_pie_chart(self, column, top_n=8):
         if column not in self.data.columns:
-            raise ValueError(f"Coluna '{column}' não encontrada")
+            raise ValueError(f"Coluna '{column}' não encontrada.")
         
         value_counts = self.data[column].value_counts().head(top_n)
         fig = px.pie(values=value_counts.values, names=value_counts.index, 
