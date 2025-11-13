@@ -1,5 +1,5 @@
-from .data_loader import DataLoader
-from .data_visualizer import DataVisualizer
-from .ml_models import MLModelManager
+from .carregador_dados import CarregadorDados
+from .visualizador_dados import VisualizadorDados
+from .modelos_ml import GerenciadorModelosML
 
-__all__ = ['DataLoader', 'DataVisualizer', 'MLModelManager']
+__all__ = ['CarregadorDados', 'VisualizadorDados', 'GerenciadorModelosML']
