@@ -84,6 +84,7 @@ def visualize_data():
         visualizador = VisualizadorDados(df)
         
         numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+        categorical_cols = df.select_dtypes(include=['object', 'string']).columns.tolist()
         
         charts = {}
         
@@ -95,9 +96,17 @@ def visualize_data():
             corr_fig = visualizador.plot_correlation_heatmap()
             charts['correlation'] = corr_fig.to_html(full_html=False)
         
-        if 'latitude' in df.columns and 'longitude' in df.columns:
-            geo_fig = visualizador.plot_geographic_map('latitude')
-            charts['geographic'] = geo_fig.to_html(full_html=False)
+        if len(categorical_cols) > 0:
+            pie_fig = visualizador.plot_pie_chart(categorical_cols[0])
+            charts['pie'] = pie_fig.to_html(full_html=False)
+        
+        if 'Country' in df.columns or 'country' in df.columns:
+            location_col = 'Country' if 'Country' in df.columns else 'country'
+            try:
+                geo_fig = visualizador.plot_geographic_map(location_col)
+                charts['geographic'] = geo_fig.to_html(full_html=False)
+            except:
+                pass  
         
         return jsonify(charts)
     except Exception as e:
