@@ -30,8 +30,15 @@ def upload_file():
             return jsonify({'error': 'Arquivo vazio'}), 400
         
         print(f'Lendo arquivo: {file.filename}')
-        df = pd.read_csv(file)
+        
+        df = carregador_dados.load_csv(file)
         print(f'Dados carregados: {df.shape[0]} linhas, {df.shape[1]} colunas')
+        
+        data_info = carregador_dados.get_data_info()
+        column_types = carregador_dados.get_column_types()
+        
+        if data_info and 'dtypes' in data_info:
+            data_info['dtypes'] = {k: str(v) for k, v in data_info['dtypes'].items()}
         
         # Converter NaN para None para JSON válido
         df = df.astype(object).where(pd.notna(df), None)
@@ -39,11 +46,16 @@ def upload_file():
         return jsonify({
             'data': df.to_dict('records'),
             'columns': df.columns.tolist(),
-            'shape': df.shape
+            'shape': df.shape,
+            'info': data_info,
+            'column_types': column_types
         })
     except Exception as e:
         print(f'Erro no upload: {str(e)}')
         return jsonify({'error': str(e)}), 500
+    
+
+    
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze_data():
@@ -72,6 +84,10 @@ def analyze_data():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+
+
+
 
 @app.route('/api/visualize', methods=['POST'])
 def visualize_data():
@@ -111,6 +127,10 @@ def visualize_data():
         return jsonify(charts)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+
+
+
 
 @app.route('/api/train', methods=['POST'])
 def train_model():
@@ -138,11 +158,9 @@ def train_model():
         gerenciador_ml.train_model(model_key)
         metrics = gerenciador_ml.evaluate_model()
 
-        # Gerar gráficos
         import plotly.graph_objects as go
         import plotly.express as px
         
-        # Matriz de confusão
         cm = metrics['confusion_matrix']
         fig_cm = px.imshow(cm, 
                           text_auto=True,
@@ -151,7 +169,6 @@ def train_model():
                           color_continuous_scale='Blues')
         fig_cm.update_layout(template='plotly_white', height=500)
         
-        # Importância de features (se disponível)
         feature_importance_html = None
         importance_df = gerenciador_ml.get_feature_importance()
         if importance_df is not None:
@@ -180,6 +197,10 @@ def train_model():
         return jsonify(response_payload)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+
+
+
 
 @app.route('/api/predict', methods=['POST'])
 def predict():
