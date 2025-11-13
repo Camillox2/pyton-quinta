@@ -1,5 +1,5 @@
 # Módulo de Visualização de Dados
-## Desenvolvido por: João
+## Desenvolvido por: Erick
 
 ## Visão Geral
 
