@@ -3,6 +3,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
@@ -53,9 +54,23 @@ class GerenciadorModelosML:
         self.y_train = None
         self.y_test = None
         self.feature_names = None
+        self.encoders = {}
+        self.label_encoder = None
 
     def prepare_data(self, X, y, test_size=0.2, random_state=42):
+        X = X.copy()
         self.feature_names = X.columns.tolist() if isinstance(X, pd.DataFrame) else None
+
+        # Encode categorical features
+        for col in X.select_dtypes(include=['object', 'string']).columns:
+            le = LabelEncoder()
+            X[col] = le.fit_transform(X[col].astype(str))
+            self.encoders[col] = le
+
+        # Encode target
+        self.label_encoder = LabelEncoder()
+        y = self.label_encoder.fit_transform(y.astype(str))
+
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
             X, y, test_size=test_size, random_state=random_state
         )
@@ -77,17 +92,17 @@ class GerenciadorModelosML:
     def evaluate_model(self):
         if self.model is None:
             raise ValueError("Modelo não treinado")
-        
+
         y_train_pred = self.model.predict(self.X_train)
         y_test_pred = self.model.predict(self.X_test)
-        
+
         metrics = {
             'train_accuracy': accuracy_score(self.y_train, y_train_pred),
-            'test_accuracy': accuracy_score(self.y_test, y_test_pred),
+            'accuracy': accuracy_score(self.y_test, y_test_pred),
             'precision': precision_score(self.y_test, y_test_pred, average='weighted', zero_division=0),
             'recall': recall_score(self.y_test, y_test_pred, average='weighted', zero_division=0),
             'f1_score': f1_score(self.y_test, y_test_pred, average='weighted', zero_division=0),
-            'confusion_matrix': confusion_matrix(self.y_test, y_test_pred),
+            'confusion_matrix': confusion_matrix(self.y_test, y_test_pred).tolist(),
             'classification_report': classification_report(self.y_test, y_test_pred, zero_division=0)
         }
         return metrics
@@ -95,7 +110,16 @@ class GerenciadorModelosML:
     def predict(self, X):
         if self.model is None:
             raise ValueError("Modelo não treinado")
-        return self.model.predict(X)
+        X = X.copy()
+        # Apply same encoding as training
+        for col, encoder in self.encoders.items():
+            if col in X.columns:
+                X[col] = encoder.transform(X[col].astype(str))
+        predictions = self.model.predict(X)
+        # Decode predictions back to original labels
+        if self.label_encoder:
+            predictions = self.label_encoder.inverse_transform(predictions)
+        return predictions
 
     def get_feature_importance(self):
         if self.model is None:
@@ -117,7 +141,9 @@ class GerenciadorModelosML:
         joblib.dump({
             'model': self.model,
             'model_name': self.model_name,
-            'feature_names': self.feature_names
+            'feature_names': self.feature_names,
+            'encoders': self.encoders,
+            'label_encoder': self.label_encoder
         }, filepath)
 
     def load_model(self, filepath):
@@ -125,3 +151,5 @@ class GerenciadorModelosML:
         self.model = model_data['model']
         self.model_name = model_data['model_name']
         self.feature_names = model_data.get('feature_names')
+        self.encoders = model_data.get('encoders', {})
+        self.label_encoder = model_data.get('label_encoder')

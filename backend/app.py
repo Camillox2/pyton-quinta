@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import pandas as pd
 from utils.carregador_dados import CarregadorDados
-from utils.visualizador_dados import VisualizadorDados
+from utils.visualizadorr import VisualizadorDados
 from utils.modelos_ml import GerenciadorModelosML
 
 MODEL_MAP = {
