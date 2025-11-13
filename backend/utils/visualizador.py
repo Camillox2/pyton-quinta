@@ -6,7 +6,6 @@ import pandas as pd
 import numpy as np
 from pandas.api.types import is_numeric_dtype
 
-
 class VisualizadorDados:
     def _init_(self, data):
         self.data = data
